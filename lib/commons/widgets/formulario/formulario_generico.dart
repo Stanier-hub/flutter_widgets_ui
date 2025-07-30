@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:flutter_widgets_ui/commons/cores_padrao_ui.dart';
 import 'package:flutter_widgets_ui/commons/models/mensagem_erro_request.dart';
 import 'package:flutter_widgets_ui/commons/models/model.dart';
@@ -145,11 +144,15 @@ class _FormularioGenericoState<T extends Model, S extends SevicePadrao>
                   }
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: widget.backgroundColor ?? CoresPadraoUi.ascent,
+                  backgroundColor:
+                      widget.backgroundColor ?? CoresPadraoUi.ascent,
                 ),
                 child: Text(
                   widget.textoBotao ?? 'Salvar',
-                  style: TextStyle(color: widget.corTextoBotaoSalvar ?? CoresPadraoUi.whiteSmoke),
+                  style: TextStyle(
+                    color:
+                        widget.corTextoBotaoSalvar ?? CoresPadraoUi.whiteSmoke,
+                  ),
                 ),
               ),
             ],
