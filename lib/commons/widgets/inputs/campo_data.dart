@@ -2,15 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_widgets_ui/commons/cores_padrao_ui.dart';
 import 'package:flutter_widgets_ui/commons/widgets/buttons/button_default.dart';
 
+/// CampoData é um widget personalizado para seleção de datas.
+/// Permite escolher uma data completa (dia/mês/ano) ou apenas competência (mês/ano),
+/// exibindo um campo com rótulo e ícone de calendário.
+///
+/// Parâmetros:
+/// - `onChanged`: Callback chamado quando a data é alterada.
+/// - `ehCompetencia`: Se verdadeiro, permite selecionar apenas mês e ano (competência).
 class CampoData extends StatefulWidget {
+  /// Callback chamada quando a data é alterada.
   final ValueChanged<DateTime>? onChanged;
-  final bool ehCompetencia; // Parâmetro para definir se é mês/ano ou calendário
+  /// Se verdadeiro, permite selecionar apenas mês e ano (competência) ao invés de data completa.
+  /// Quando ativado, o campo exibe um seletor para mês e ano.
+  final bool ehCompetencia; 
 
   const CampoData({
     super.key,
     this.onChanged,
-    this.ehCompetencia =
-        false, // Se for true, exibe o modal para seleção de mês/ano
+    this.ehCompetencia = false, 
   });
 
   @override
@@ -30,7 +39,6 @@ class _CampoDataState extends State<CampoData> {
 
   // Método para exibir o calendário completo
   Future<void> _abrirCalendario(BuildContext context) async {
-    
     final DateTime? dataEscolhida = await showDatePicker(
       context: context,
       initialDate: dataSelecionadaNotifier.value,
@@ -235,9 +243,10 @@ class _CampoDataState extends State<CampoData> {
     return ValueListenableBuilder(
       valueListenable: dataSelecionadaNotifier,
       builder: (_, value, __) {
-        final String dataFormatada = widget.ehCompetencia
-            ? "${dataSelecionadaNotifier.value.month.toString().padLeft(2, '0')}/${dataSelecionadaNotifier.value.year}"
-            : "${dataSelecionadaNotifier.value.day.toString().padLeft(2, '0')}/${dataSelecionadaNotifier.value.month.toString().padLeft(2, '0')}/${dataSelecionadaNotifier.value.year}";
+        final String dataFormatada =
+            widget.ehCompetencia
+                ? "${dataSelecionadaNotifier.value.month.toString().padLeft(2, '0')}/${dataSelecionadaNotifier.value.year}"
+                : "${dataSelecionadaNotifier.value.day.toString().padLeft(2, '0')}/${dataSelecionadaNotifier.value.month.toString().padLeft(2, '0')}/${dataSelecionadaNotifier.value.year}";
         return GestureDetector(
           onTap: () {
             if (widget.ehCompetencia) {
@@ -249,8 +258,9 @@ class _CampoDataState extends State<CampoData> {
             }
           },
           child: InputDecorator(
-            decoration:  InputDecoration(
-              labelText: widget.ehCompetencia ?  'Competência (Mês/Ano)': 'Data',
+            decoration: InputDecoration(
+              labelText:
+                  widget.ehCompetencia ? 'Competência (Mês/Ano)' : 'Data',
               border: OutlineInputBorder(),
             ),
             child: Row(

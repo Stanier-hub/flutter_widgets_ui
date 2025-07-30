@@ -27,26 +27,57 @@ import 'package:flutter/material.dart';
 /// [focusNode] O nó de foco associado ao campo de entrada.
 /// 
 /// [nextFocus] O nó de foco para o próximo campo a ser focado após a submissão.
-/// 
-/// [onSubmited] A função a ser chamada quando o campo de entrada é submetido.
-/// 
+///
+/// [onSubmited] Função chamada ao submeter o campo. Avança para o próximo campo caso [nextFocus] não seja nulo ou executa ação personalizada.
+///
 /// [apenasLeitura] impede teclado de abrir
 class InputDefault extends StatefulWidget {
+  /// Rótulo exibido acima do campo de entrada.
   final String rotulo;
+
+  /// Controlador responsável pelo texto do campo de entrada.
   final TextEditingController controlador;
+
+  /// Define se o texto do campo será exibido de forma obscura (ex: senha).
   final bool textoObscuro;
+
+  /// Tipo de teclado a ser exibido ao focar no campo.
   final TextInputType tipoTeclado;
+
+  /// Ícone exibido como prefixo dentro do campo de entrada.
   final Icon? iconePrefixo;
+
+  /// Ícone exibido como sufixo dentro do campo de entrada.
   final Icon? iconeSufixo;
+
+  /// Mensagem de erro personalizada a ser exibida.
   final String? mensagemErro;
+
+  /// Notificador para controlar a condição de erro do campo.
   final ValueNotifier<bool>? condicaoErro;
+
+  /// Indica se o campo é obrigatório.
   final bool obrigatorio;
+
+  /// Notificador para exibir erro de obrigatoriedade.
   final ValueNotifier<bool>? exibirErroObrigatorio;
+
+  /// Função de validação personalizada para o campo.
   final String? Function(String?)? validator;
+
+  /// Nó de foco associado ao campo de entrada.
   final FocusNode? focusNode;
+
+  /// Nó de foco do próximo campo a ser focado após submissão.
   final FocusNode? nextFocus;
+
+  /// Função chamada ao submeter o campo. Avança para o próximo campo caso [nextFocus] não seja nulo ou executa ação personalizada.
   final Function? onSubmited;
+
+  /// Define se o campo será apenas leitura.
   final bool apenasLeitura;
+
+  /// Função chamada ao tocar no campo.
   final Function()? onTap;
 
   const InputDefault({

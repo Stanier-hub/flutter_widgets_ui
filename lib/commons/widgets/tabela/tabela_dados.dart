@@ -1,16 +1,49 @@
 import 'package:flutter/material.dart';
 
 // Definindo o tipo TabelaLinha para ser uma função que retorna um TableRow
-typedef TabelaLinha<T> = List<TabelaCelula> Function(BuildContext context, T item);
+typedef TabelaLinha<T> =
+    List<TabelaCelula> Function(BuildContext context, T item);
 
-// Componente TabelaDados - Aceita listas de TabelaColuna e TabelaLinha, com dados em células.
+/// Componente genérico de tabela para exibir dados em linhas e colunas personalizáveis.
+///
+/// Este widget recebe uma lista de dados genéricos [T], uma lista de colunas do tipo [TabelaColuna],
+/// e uma função [linhaDados] que constrói as células de cada linha a partir do dado.
+///
+/// Suporta exibição de mensagem quando a tabela está vazia, além de indicador de carregamento.
+///
+/// Parâmetros principais:
+/// - `dados`: lista de dados a serem exibidos na tabela.
+/// - `colunas`: lista das colunas que definem o cabeçalho da tabela.
+/// - `linhaDados`: função que recebe o contexto e um item da lista e retorna a lista de células para aquela linha.
+/// - `textoTabelaVazia`: texto a ser exibido quando não há dados (default: "Nenhum dado encontrado").
+/// - `ehCarregando`: indica se a tabela está em estado de carregamento para mostrar o indicador.
+/// - `tamanhosColunas`: lista de pesos para largura flexível de cada coluna.
+///
+/// O widget usa um [Table] interno para layout das células, permitindo estilização e responsividade.
 class TabelaDados<T> extends StatelessWidget {
-  final List<T> dados; // Lista de dados genéricos (T)
-  final List<TabelaColuna>
-  colunas; // Lista de TabelaColuna, para definir o cabeçalho da tabela
-  final TabelaLinha<T> linhaDados; // Função para construir cada linha
+  /// Lista genérica de dados que serão exibidos na tabela.
+  /// Cada item dessa lista será usado para construir uma linha da tabela.
+  final List<T> dados;
+
+  /// Lista de colunas que definem o cabeçalho da tabela.
+  /// Cada coluna é representada por um widget [TabelaColuna].
+  final List<TabelaColuna> colunas;
+
+  /// Função que recebe o contexto e um item do tipo [T] e retorna a lista de células ([TabelaCelula])
+  /// correspondentes àquela linha da tabela.
+  /// Usada para construir dinamicamente o conteúdo de cada linha.
+  final TabelaLinha<T> linhaDados;
+
+  /// Texto exibido quando a tabela não contém nenhum dado.
+  /// Valor padrão: "Nenhum dado encontrado".
   final String textoTabelaVazia;
+
+  /// Indicador booleano que define se a tabela está em estado de carregamento.
+  /// Quando verdadeiro, exibe um [CircularProgressIndicator].
   final bool ehCarregando;
+
+  /// Lista de pesos flexíveis para definir as larguras relativas das colunas.
+  /// Se vazia, todas as colunas terão peso 1 igual.
   final List<double> tamanhosColunas;
 
   const TabelaDados({
@@ -21,7 +54,6 @@ class TabelaDados<T> extends StatelessWidget {
     this.ehCarregando = false,
     this.textoTabelaVazia = "Nenhum dado encontrado",
     this.tamanhosColunas = const [],
-
   });
 
   @override
@@ -33,7 +65,7 @@ class TabelaDados<T> extends StatelessWidget {
         child: Column(
           children: [
             Table(
-              
+              // TODO: Implementar bordas personalizaveis e genéricas
               // border: const TableBorder(
 
               //   horizontalInside: BorderSide(
@@ -42,26 +74,27 @@ class TabelaDados<T> extends StatelessWidget {
               //     color: Colors.black,
               //   ),
               // ),
-                columnWidths: {
-                for (int i = 0; i < colunas.length; i++) 
-                  i: FlexColumnWidth(tamanhosColunas.isNotEmpty && i < tamanhosColunas.length ? tamanhosColunas[i] : 1),
+              columnWidths: {
+                for (int i = 0; i < colunas.length; i++)
+                  i: FlexColumnWidth(
+                    tamanhosColunas.isNotEmpty && i < tamanhosColunas.length
+                        ? tamanhosColunas[i]
+                        : 1,
+                  ),
               },
-                children: [
+              children: [
                 // Cabeçalho da tabela
                 Colunas.builder(colunas),
                 // Gerando as linhas com base nos dados
                 ...List.generate(dados.length, (index) {
                   final item = dados[index];
                   return TableRow(
-                  decoration: const BoxDecoration(
-                    border: Border(
-                    bottom: BorderSide(
-                      color: Colors.grey,
-                      width: 0.5,
+                    decoration: const BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(color: Colors.grey, width: 0.5),
+                      ),
                     ),
-                    ),
-                  ),
-                  children: linhaDados(context, item),
+                    children: linhaDados(context, item),
                   );
                 }),
               ],
@@ -104,7 +137,8 @@ class TabelaColuna extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: padding ?? const EdgeInsets.symmetric(vertical: 8.0, horizontal: 8.0),
+      padding:
+          padding ?? const EdgeInsets.symmetric(vertical: 8.0, horizontal: 8.0),
       child: Text(
         texto,
         style: TextStyle(fontWeight: FontWeight.bold, fontSize: tamanhoTexto),
@@ -140,7 +174,6 @@ class TabelaCelula extends StatelessWidget {
   }
 }
 
-
 class Colunas {
   static TableRow builder(List<TabelaColuna> colunas) {
     return TableRow(
@@ -150,10 +183,10 @@ class Colunas {
         borderRadius: BorderRadius.circular(40.0),
         boxShadow: [
           BoxShadow(
-        color: Colors.grey.shade400,
-        spreadRadius: 1,
-        blurRadius: 5,
-        offset: Offset(0, 3), // changes position of shadow
+            color: Colors.grey.shade400,
+            spreadRadius: 1,
+            blurRadius: 5,
+            offset: Offset(0, 3),
           ),
         ],
       ),

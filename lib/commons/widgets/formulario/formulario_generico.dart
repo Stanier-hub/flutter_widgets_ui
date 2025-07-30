@@ -8,27 +8,101 @@ import 'package:flutter_widgets_ui/commons/widgets/Base.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+/// Callback que retorna um bool opcional, usada para ações especiais antes do salvamento.
+/// Se retornar false, impede que o salvamento continue.
 typedef AcaoEspecialCallBack<T> = bool? Function();
+
+/// Callback que retorna um modelo [T] opcional, usada para buscar um modelo existente.
 typedef BuscarModeloCallBack<T> = T? Function();
 
+/// Callback para construir os dados que serão enviados para criação ou atualização,
+/// deve retornar um mapa com os pares chave/valor correspondentes aos dados do formulário.
 typedef ConstruirDadosCallback = Map<String, dynamic> Function();
 
+/// Callback chamada ao concluir a operação de salvar (criar ou atualizar).
 typedef AoConcluirCallBack = void Function();
+
+/// Callback que retorna um booleano para permitir ou não salvar (ex: validação extra).
 typedef OnPodeSalvar = bool Function();
+
+/// Widget genérico para formulários que manipulem modelos [T] e usem serviços [S].
+///
+/// Este widget permite construir um formulário flexível e reutilizável que pode criar ou atualizar
+/// modelos que estendam [Model], usando um serviço que implemente [SevicePadrao].
+///
+/// O formulário exibe campos personalizados, botões e lida com validações e feedback visual.
+///
+/// Parâmetros:
+/// - `modelo`: Instância do modelo [T] que será editado. Se nulo, o formulário criará um novo modelo.
+/// - `acaoEspecialCallBack`: Callback que pode executar uma ação especial antes do salvamento. Retornar
+///    false cancela o salvamento.
+/// - `buscaModelo`: Callback para retornar uma instância do modelo [T], caso `modelo` seja nulo.
+/// - `servico`: Serviço responsável por criar e atualizar o modelo. Deve implementar [SevicePadrao].
+/// - `onSalvar`: Callback chamado após o salvamento (criação ou atualização) do modelo.
+/// - `campos`: Lista de widgets que compõem os campos do formulário.
+/// - `textoBotao`: Texto exibido no botão de salvar. Padrão é 'Salvar'.
+/// - `construirDados`: Função que retorna um mapa com os dados que serão usados para criar ou atualizar o modelo.
+/// - `aoConcluir`: Callback executado após o término do processo de salvar, independentemente do sucesso.
+/// - `onPodeSalvar`: Callback que retorna um booleano para permitir ou bloquear o salvamento (ex: validações adicionais).
+/// - `backgroundColor`: Cor de fundo do botão salvar.
+/// - `corTextoBotaoSalvar`: Cor do texto do botão salvar.
+///
+/// Exemplo básico de uso:
+/// ```dart
+/// FormularioGenerico<Cliente, ClienteService>(
+///   modelo: clienteExistente,
+///   servico: clienteService,
+///   campos: [
+///     TextFormField(...),
+///     // outros campos
+///   ],
+///   construirDados: () => {
+///     'nome': nomeController.text,
+///     'idade': idadeController.text,
+///   },
+///   onSalvar: (modeloSalvo) {
+///     // ação após salvar
+///   },
+/// );
+/// ```
 
 class FormularioGenerico<T extends Model, S extends SevicePadrao>
     extends StatefulWidget {
+  /// Modelo atual que será editado ou salvo.
   final T? modelo;
+
+  /// Callback executado antes do salvamento para executar alguma ação especial.
+  /// Se retornar false, o salvamento é cancelado.
   final AcaoEspecialCallBack? acaoEspecialCallBack;
+
+  /// Callback para buscar o modelo caso `modelo` seja null.
   final BuscarModeloCallBack<T>? buscaModelo;
+
+  /// Serviço responsável por criar e atualizar o modelo.
   final S? servico;
+
+  /// Callback executado após salvar com sucesso (criar ou atualizar).
   final void Function(T)? onSalvar;
+
+  /// Lista de campos (widgets) que compõem o formulário.
   final List<Widget> campos;
+
+  /// Texto exibido no botão de salvar. Padrão: 'Salvar'.
   final String? textoBotao;
+
+  /// Função que retorna os dados que serão usados para criar/atualizar o modelo.
   final ConstruirDadosCallback construirDados;
+
+  /// Callback chamado ao concluir o processo de salvar.
   final AoConcluirCallBack? aoConcluir;
+
+  /// Callback que indica se é possível salvar ou não. Pode ser usado para validações extras.
   final OnPodeSalvar? onPodeSalvar;
+
+  /// Cor de fundo do botão salvar.
   final Color? backgroundColor;
+
+  /// Cor do texto do botão salvar.
   final Color? corTextoBotaoSalvar;
 
   const FormularioGenerico({
@@ -163,6 +237,9 @@ class _FormularioGenericoState<T extends Model, S extends SevicePadrao>
   }
 }
 
+/// Helper para exibir mensagens de sucesso após criar/atualizar modelos.
+///
+/// Exibe um [SnackBar] com mensagem apropriada com base no nome do modelo e tipo de ação.
 class _Mensagem {
   static void exibir<T extends Model>({
     required BuildContext context,
