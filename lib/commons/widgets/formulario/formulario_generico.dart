@@ -12,6 +12,10 @@ import 'package:flutter/material.dart';
 /// Se retornar false, impede que o salvamento continue.
 typedef AcaoEspecialCallBack<T> = bool? Function();
 
+/// Callback opcional para executar uma ação personalizada usando o serviço e o modelo.
+/// Pode ser usada, por exemplo, para chamar métodos do serviço além de criar/atualizar.
+typedef AcaoServicoPersonalizada<T extends Model, S extends SevicePadrao> = Future<void> Function(S servico, T? modelo);
+
 /// Callback que retorna um modelo [T] opcional, usada para buscar um modelo existente.
 typedef BuscarModeloCallBack<T> = T? Function();
 
@@ -36,6 +40,7 @@ typedef OnPodeSalvar = bool Function();
 /// - `modelo`: Instância do modelo [T] que será editado. Se nulo, o formulário criará um novo modelo.
 /// - `acaoEspecialCallBack`: Callback que pode executar uma ação especial antes do salvamento. Retornar
 ///    false cancela o salvamento.
+/// - `acaoServicoPersonalizada`: Callback opcional para executar uma ação personalizada usando o serviço e o modelo.
 /// - `buscaModelo`: Callback para retornar uma instância do modelo [T], caso `modelo` seja nulo.
 /// - `servico`: Serviço responsável por criar e atualizar o modelo. Deve implementar [SevicePadrao].
 /// - `onSalvar`: Callback chamado após o salvamento (criação ou atualização) do modelo.
@@ -66,14 +71,17 @@ typedef OnPodeSalvar = bool Function();
 /// );
 /// ```
 
-class FormularioGenerico<T extends Model, S extends SevicePadrao>
-    extends StatefulWidget {
+class FormularioGenerico<T extends Model, S extends SevicePadrao> extends StatefulWidget {
   /// Modelo atual que será editado ou salvo.
   final T? modelo;
 
   /// Callback executado antes do salvamento para executar alguma ação especial.
   /// Se retornar false, o salvamento é cancelado.
   final AcaoEspecialCallBack? acaoEspecialCallBack;
+
+  /// Callback opcional para executar uma ação personalizada usando o serviço e o modelo.
+  /// Pode ser usada, por exemplo, para chamar métodos do serviço além de criar/atualizar.
+  final AcaoServicoPersonalizada<T, S>? acaoServicoPersonalizada;
 
   /// Callback para buscar o modelo caso `modelo` seja null.
   final BuscarModeloCallBack<T>? buscaModelo;
@@ -109,6 +117,7 @@ class FormularioGenerico<T extends Model, S extends SevicePadrao>
     super.key,
     this.modelo,
     this.acaoEspecialCallBack,
+    this.acaoServicoPersonalizada,
     this.buscaModelo,
     required this.servico,
     this.onSalvar,
@@ -122,12 +131,10 @@ class FormularioGenerico<T extends Model, S extends SevicePadrao>
   });
 
   @override
-  State<FormularioGenerico<T, S>> createState() =>
-      _FormularioGenericoState<T, S>();
+  State<FormularioGenerico<T, S>> createState() => _FormularioGenericoState<T, S>();
 }
 
-class _FormularioGenericoState<T extends Model, S extends SevicePadrao>
-    extends State<FormularioGenerico<T, S>> {
+class _FormularioGenericoState<T extends Model, S extends SevicePadrao> extends State<FormularioGenerico<T, S>> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   @override
@@ -141,14 +148,7 @@ class _FormularioGenericoState<T extends Model, S extends SevicePadrao>
               child: Form(
                 key: _formKey,
                 child: Column(
-                  children: [
-                    ...widget.campos.map(
-                      (campo) => Padding(
-                        padding: const EdgeInsets.all(10),
-                        child: campo,
-                      ),
-                    ),
-                  ],
+                  children: [...widget.campos.map((campo) => Padding(padding: const EdgeInsets.all(10), child: campo))],
                 ),
               ),
             ),
@@ -162,37 +162,27 @@ class _FormularioGenericoState<T extends Model, S extends SevicePadrao>
                     return; // Se o formulário não for válido, não prossegue.
                   }
 
-                  final bool podeContinuar =
-                      widget.acaoEspecialCallBack?.call() ?? true;
+                  final bool podeContinuar = widget.acaoEspecialCallBack?.call() ?? true;
                   if (!podeContinuar) return;
 
                   final T? modelo = widget.modelo ?? widget.buscaModelo?.call();
                   final S? servico = widget.servico;
+
                   try {
                     if (servico != null) {
+                      if (widget.acaoServicoPersonalizada != null) {
+                        await widget.acaoServicoPersonalizada!.call(servico, modelo);
+                        return;
+                      }
                       if (modelo == null) {
-                        final T novoModelo = await servico.criar(
-                          dados: widget.construirDados(),
-                        );
-                        _Mensagem.exibir<T>(
-                          context: context,
-                          modelo: novoModelo,
-                          tipo: 'criada',
-                        );
+                        final T novoModelo = await servico.criar(dados: widget.construirDados());
+                        _Mensagem.exibir<T>(context: context, modelo: novoModelo, tipo: 'criada');
                       } else {
-                        final Map<String, dynamic> dados =
-                            widget.construirDados();
+                        final Map<String, dynamic> dados = widget.construirDados();
 
-                        await servico.atualizar(
-                          modelo: modelo,
-                          dados: dados.isEmpty ? modelo.toJson() : dados,
-                        );
+                        await servico.atualizar(modelo: modelo, dados: dados.isEmpty ? modelo.toJson() : dados);
 
-                        _Mensagem.exibir<T>(
-                          context: context,
-                          modelo: modelo,
-                          tipo: 'atualizada',
-                        );
+                        _Mensagem.exibir<T>(context: context, modelo: modelo, tipo: 'atualizada');
                       }
                       widget.aoConcluir?.call();
                       return;
@@ -202,14 +192,10 @@ class _FormularioGenericoState<T extends Model, S extends SevicePadrao>
                       widget.onSalvar?.call(modelo);
                     }
                   } on HttpException catch (e) {
-                    final MensagemErroRequest erro =
-                        MensagemErroRequest.fromJson(jsonDecode(e.message));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(erro.mensagem),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
+                    final MensagemErroRequest erro = MensagemErroRequest.fromJson(jsonDecode(e.message));
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text(erro.mensagem), backgroundColor: Colors.red));
                   } catch (erro, stackTrace) {
                     if (kDebugMode) {
                       print('Erro genérico: "$erro".');
@@ -217,16 +203,10 @@ class _FormularioGenericoState<T extends Model, S extends SevicePadrao>
                     }
                   }
                 },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor:
-                      widget.backgroundColor ?? CoresPadraoUi.ascent,
-                ),
+                style: ElevatedButton.styleFrom(backgroundColor: widget.backgroundColor ?? CoresPadraoUi.ascent),
                 child: Text(
                   widget.textoBotao ?? 'Salvar',
-                  style: TextStyle(
-                    color:
-                        widget.corTextoBotaoSalvar ?? CoresPadraoUi.whiteSmoke,
-                  ),
+                  style: TextStyle(color: widget.corTextoBotaoSalvar ?? CoresPadraoUi.whiteSmoke),
                 ),
               ),
             ],
@@ -255,8 +235,6 @@ class _Mensagem {
       texto =
           "${modelo.modeloString} ${modelo.modeloString.endsWith('a') ? tipo : tipo.replaceFirst(RegExp(r'.$'), 'o')} com sucesso";
     }
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(texto), backgroundColor: cor));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(texto), backgroundColor: cor));
   }
 }
