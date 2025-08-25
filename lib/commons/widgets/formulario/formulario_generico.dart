@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_widgets_ui/commons/cores_padrao_ui.dart';
 import 'package:flutter_widgets_ui/commons/models/mensagem_erro_request.dart';
 import 'package:flutter_widgets_ui/commons/models/model.dart';
@@ -24,7 +25,7 @@ typedef BuscarModeloCallBack<T> = T? Function();
 typedef ConstruirDadosCallback = Map<String, dynamic> Function();
 
 /// Callback chamada ao concluir a operação de salvar (criar ou atualizar).
-typedef AoConcluirCallBack = void Function();
+typedef AoConcluirCallBack<T> = void Function(T? modelo);
 
 /// Callback que retorna um booleano para permitir ou não salvar (ex: validação extra).
 typedef OnPodeSalvar = bool Function();
@@ -43,7 +44,6 @@ typedef OnPodeSalvar = bool Function();
 /// - `acaoServicoPersonalizada`: Callback opcional para executar uma ação personalizada usando o serviço e o modelo.
 /// - `buscaModelo`: Callback para retornar uma instância do modelo [T], caso `modelo` seja nulo.
 /// - `servico`: Serviço responsável por criar e atualizar o modelo. Deve implementar [SevicePadrao].
-/// - `onSalvar`: Callback chamado após o salvamento (criação ou atualização) do modelo.
 /// - `campos`: Lista de widgets que compõem os campos do formulário.
 /// - `textoBotao`: Texto exibido no botão de salvar. Padrão é 'Salvar'.
 /// - `construirDados`: Função que retorna um mapa com os dados que serão usados para criar ou atualizar o modelo.
@@ -65,7 +65,7 @@ typedef OnPodeSalvar = bool Function();
 ///     'nome': nomeController.text,
 ///     'idade': idadeController.text,
 ///   },
-///   onSalvar: (modeloSalvo) {
+///   aoConcluir: (modeloSalvo) {
 ///     // ação após salvar
 ///   },
 /// );
@@ -89,9 +89,6 @@ class FormularioGenerico<T extends Model, S extends SevicePadrao> extends Statef
   /// Serviço responsável por criar e atualizar o modelo.
   final S? servico;
 
-  /// Callback executado após salvar com sucesso (criar ou atualizar).
-  final void Function(T)? onSalvar;
-
   /// Lista de campos (widgets) que compõem o formulário.
   final List<Widget> campos;
 
@@ -102,7 +99,7 @@ class FormularioGenerico<T extends Model, S extends SevicePadrao> extends Statef
   final ConstruirDadosCallback construirDados;
 
   /// Callback chamado ao concluir o processo de salvar.
-  final AoConcluirCallBack? aoConcluir;
+  final AoConcluirCallBack<T>? aoConcluir;
 
   /// Callback que indica se é possível salvar ou não. Pode ser usado para validações extras.
   final OnPodeSalvar? onPodeSalvar;
@@ -120,7 +117,6 @@ class FormularioGenerico<T extends Model, S extends SevicePadrao> extends Statef
     this.acaoServicoPersonalizada,
     this.buscaModelo,
     required this.servico,
-    this.onSalvar,
     required this.campos,
     this.textoBotao,
     required this.construirDados,
@@ -136,6 +132,53 @@ class FormularioGenerico<T extends Model, S extends SevicePadrao> extends Statef
 
 class _FormularioGenericoState<T extends Model, S extends SevicePadrao> extends State<FormularioGenerico<T, S>> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  late final ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToPrimeiroErro() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final erroElements = <FormFieldState>[];
+
+      void collectErrors(Element element) {
+        if (element.widget is FormField && element is StatefulElement) {
+          final state = element.state as FormFieldState;
+          if (state.hasError) {
+            erroElements.add(state);
+          }
+        }
+        element.visitChildren(collectErrors);
+      }
+
+      _formKey.currentContext?.visitChildElements(collectErrors);
+
+      if (erroElements.isNotEmpty && _scrollController.hasClients) {
+        final firstError = erroElements.first;
+        final renderObject = firstError.context.findRenderObject();
+        if (renderObject != null && renderObject is RenderBox) {
+          final scrollableBox = _scrollController.position.context.storageContext.findRenderObject();
+          if (scrollableBox is RenderBox) {
+            final offset = RenderAbstractViewport.of(renderObject).getOffsetToReveal(renderObject, 0.1).offset;
+            _scrollController.animateTo(
+              offset.clamp(_scrollController.position.minScrollExtent, _scrollController.position.maxScrollExtent),
+              duration: const Duration(milliseconds: 500),
+              curve: Curves.easeInOut,
+            );
+          }
+        }
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -145,6 +188,7 @@ class _FormularioGenericoState<T extends Model, S extends SevicePadrao> extends 
         children: [
           Flexible(
             child: SingleChildScrollView(
+              controller: _scrollController,
               child: Form(
                 key: _formKey,
                 child: Column(
@@ -159,6 +203,7 @@ class _FormularioGenericoState<T extends Model, S extends SevicePadrao> extends 
               ElevatedButton(
                 onPressed: () async {
                   if (!_formKey.currentState!.validate()) {
+                    _scrollToPrimeiroErro();
                     return; // Se o formulário não for válido, não prossegue.
                   }
 
@@ -177,19 +222,19 @@ class _FormularioGenericoState<T extends Model, S extends SevicePadrao> extends 
                       if (modelo == null) {
                         final T novoModelo = await servico.criar(dados: widget.construirDados());
                         _Mensagem.exibir<T>(context: context, modelo: novoModelo, tipo: 'criada');
+                        widget.aoConcluir?.call(novoModelo ?? modelo);
                       } else {
                         final Map<String, dynamic> dados = widget.construirDados();
 
-                        await servico.atualizar(modelo: modelo, dados: dados.isEmpty ? modelo.toJson() : dados);
+                        final T? modeloAtualizado = await servico.atualizar(
+                          modelo: modelo,
+                          dados: dados.isEmpty ? modelo.toJson() : dados,
+                        );
 
-                        _Mensagem.exibir<T>(context: context, modelo: modelo, tipo: 'atualizada');
+                        _Mensagem.exibir<T>(context: context, modelo: modeloAtualizado ?? modelo, tipo: 'atualizada');
+                        widget.aoConcluir?.call(modeloAtualizado ?? modelo);
                       }
-                      widget.aoConcluir?.call();
                       return;
-                    }
-
-                    if (modelo != null) {
-                      widget.onSalvar?.call(modelo);
                     }
                   } on HttpException catch (e) {
                     final MensagemErroRequest erro = MensagemErroRequest.fromJson(jsonDecode(e.message));
