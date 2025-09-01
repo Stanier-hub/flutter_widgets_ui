@@ -15,7 +15,7 @@ typedef AcaoEspecialCallBack<T> = bool? Function();
 
 /// Callback opcional para executar uma ação personalizada usando o serviço e o modelo.
 /// Pode ser usada, por exemplo, para chamar métodos do serviço além de criar/atualizar.
-typedef AcaoServicoPersonalizada<T extends Model, S extends SevicePadrao> = Future<void> Function(S servico, T? modelo);
+typedef AcaoServicoPersonalizada<T extends Model, S> = Future<void> Function(S servico, T? modelo);
 
 /// Callback que retorna um modelo [T] opcional, usada para buscar um modelo existente.
 typedef BuscarModeloCallBack<T> = T? Function();
@@ -30,10 +30,18 @@ typedef AoConcluirCallBack<T> = void Function(T? modelo);
 /// Callback que retorna um booleano para permitir ou não salvar (ex: validação extra).
 typedef OnPodeSalvar = bool Function();
 
+/// Callback para criação customizada quando o serviço não for [SevicePadrao].
+typedef OnCriarCustom<T extends Model> = Future<T> Function(Map<String, dynamic> dados);
+
+/// Callback para atualização customizada quando o serviço não for [SevicePadrao].
+typedef OnAtualizarCustom<T extends Model> = Future<T> Function(T modelo, Map<String, dynamic> dados);
+
 /// Widget genérico para formulários que manipulem modelos [T] e usem serviços [S].
 ///
 /// Este widget permite construir um formulário flexível e reutilizável que pode criar ou atualizar
-/// modelos que estendam [Model], usando um serviço que implemente [SevicePadrao].
+/// modelos que estendam [Model], usando:
+/// - Um serviço que implemente [SevicePadrao] (fluxo padrão com `criar` e `atualizar`);
+/// - Ou um serviço customizado, passando `onCriar` e `onAtualizar`.
 ///
 /// O formulário exibe campos personalizados, botões e lida com validações e feedback visual.
 ///
@@ -43,7 +51,9 @@ typedef OnPodeSalvar = bool Function();
 ///    false cancela o salvamento.
 /// - `acaoServicoPersonalizada`: Callback opcional para executar uma ação personalizada usando o serviço e o modelo.
 /// - `buscaModelo`: Callback para retornar uma instância do modelo [T], caso `modelo` seja nulo.
-/// - `servico`: Serviço responsável por criar e atualizar o modelo. Deve implementar [SevicePadrao].
+/// - `servico`: Serviço responsável por criar e atualizar o modelo. Pode ser padrão ou customizado.
+/// - `onCriar`: Função customizada para criação de modelo (usada se `servico` não for [SevicePadrao]).
+/// - `onAtualizar`: Função customizada para atualização de modelo (usada se `servico` não for [SevicePadrao]).
 /// - `campos`: Lista de widgets que compõem os campos do formulário.
 /// - `textoBotao`: Texto exibido no botão de salvar. Padrão é 'Salvar'.
 /// - `construirDados`: Função que retorna um mapa com os dados que serão usados para criar ou atualizar o modelo.
@@ -52,85 +62,215 @@ typedef OnPodeSalvar = bool Function();
 /// - `backgroundColor`: Cor de fundo do botão salvar.
 /// - `corTextoBotaoSalvar`: Cor do texto do botão salvar.
 ///
-/// Exemplo básico de uso:
+/// Exemplo com serviço padrão:
 /// ```dart
 /// FormularioGenerico<Cliente, ClienteService>(
 ///   modelo: clienteExistente,
 ///   servico: clienteService,
 ///   campos: [
 ///     TextFormField(...),
-///     // outros campos
 ///   ],
 ///   construirDados: () => {
 ///     'nome': nomeController.text,
-///     'idade': idadeController.text,
 ///   },
 ///   aoConcluir: (modeloSalvo) {
-///     // ação após salvar
+///     print("Cliente salvo: ${modeloSalvo?.toJson()}");
 ///   },
 /// );
 /// ```
+///
+/// Exemplo com serviço customizado:
+/// ```dart
+/// FormularioGenerico<Usuario, MeuServicoCustom>(
+///   servico: MeuServicoCustom(),
+///   onCriar: (dados) async => Usuario.fromJson(await api.post("/usuarios", body: dados)),
+///   onAtualizar: (usuario, dados) async => Usuario.fromJson(await api.put("/usuarios/${usuario.id}", body: dados)),
+///   campos: [
+///     TextFormField(...),
+///   ],
+///   construirDados: () => {
+///     "email": emailController.text,
+///   },
+///   aoConcluir: (usuario) => print("Usuário salvo: ${usuario?.toJson()}"),
+/// );
+/// ```
 
-class FormularioGenerico<T extends Model, S extends SevicePadrao> extends StatefulWidget {
-  /// Modelo atual que será editado ou salvo.
+/// Widget genérico para formulários que manipulem modelos [T] e usem serviços [S].
+///
+/// Este widget permite construir um formulário flexível e reutilizável que pode criar ou atualizar
+/// modelos que estendam [Model], usando:
+/// - Um serviço que implemente [SevicePadrao] (fluxo padrão com `criar` e `atualizar`);
+/// - Ou um serviço customizado, passando `onCriar` e `onAtualizar`.
+///
+/// O formulário exibe campos personalizados, botões e lida com validações e feedback visual.
+///
+/// Parâmetros:
+/// - `modelo`: Instância do modelo [T] que será editado. Se nulo, o formulário criará um novo modelo.
+/// - `acaoEspecialCallBack`: Callback que pode executar uma ação especial antes do salvamento. Retornar
+///    false cancela o salvamento.
+/// - `acaoServicoPersonalizada`: Callback opcional para executar uma ação personalizada usando o serviço e o modelo.
+/// - `buscaModelo`: Callback para retornar uma instância do modelo [T], caso `modelo` seja nulo.
+/// - `servico`: Serviço responsável por criar e atualizar o modelo. Pode ser padrão ou customizado.
+/// - `onCriar`: Função customizada para criação de modelo (usada se `servico` não for [SevicePadrao]).
+/// - `onAtualizar`: Função customizada para atualização de modelo (usada se `servico` não for [SevicePadrao]).
+/// - `campos`: Lista de widgets que compõem os campos do formulário.
+/// - `textoBotao`: Texto exibido no botão de salvar. Padrão é 'Salvar'.
+/// - `construirDados`: Função que retorna um mapa com os dados que serão usados para criar ou atualizar o modelo.
+/// - `aoConcluir`: Callback executado após o término do processo de salvar, independentemente do sucesso.
+/// - `onPodeSalvar`: Callback que retorna um booleano para permitir ou bloquear o salvamento (ex: validações adicionais).
+/// - `backgroundColor`: Cor de fundo do botão salvar.
+/// - `corTextoBotaoSalvar`: Cor do texto do botão salvar.
+///
+/// Exemplo com serviço padrão:
+/// ```dart
+/// FormularioGenerico<Cliente, ClienteService>(
+///   modelo: clienteExistente,
+///   servico: clienteService,
+///   campos: [
+///     TextFormField(...),
+///   ],
+///   construirDados: () => {
+///     'nome': nomeController.text,
+///   },
+///   aoConcluir: (modeloSalvo) {
+///     print("Cliente salvo: \\${modeloSalvo?.toJson()}");
+///   },
+/// );
+/// ```
+///
+/// Exemplo com serviço customizado:
+/// ```dart
+/// FormularioGenerico<Usuario, MeuServicoCustom>(
+///   servico: MeuServicoCustom(),
+///   onCriar: (dados) async => Usuario.fromJson(await api.post("/usuarios", body: dados)),
+///   onAtualizar: (usuario, dados) async => Usuario.fromJson(await api.put("/usuarios/\\${usuario.id}", body: dados)),
+///   campos: [
+///     TextFormField(...),
+///   ],
+///   construirDados: () => {
+///     "email": emailController.text,
+///   },
+///   aoConcluir: (usuario) => print("Usuário salvo: \\${usuario?.toJson()}"),
+/// );
+/// ```
+class FormularioGenerico<T extends Model, S> extends StatefulWidget {
   final T? modelo;
-
-  /// Callback executado antes do salvamento para executar alguma ação especial.
-  /// Se retornar false, o salvamento é cancelado.
   final AcaoEspecialCallBack? acaoEspecialCallBack;
-
-  /// Callback opcional para executar uma ação personalizada usando o serviço e o modelo.
-  /// Pode ser usada, por exemplo, para chamar métodos do serviço além de criar/atualizar.
   final AcaoServicoPersonalizada<T, S>? acaoServicoPersonalizada;
-
-  /// Callback para buscar o modelo caso `modelo` seja null.
   final BuscarModeloCallBack<T>? buscaModelo;
-
-  /// Serviço responsável por criar e atualizar o modelo.
   final S? servico;
-
-  /// Lista de campos (widgets) que compõem o formulário.
+  final OnCriarCustom<T>? onCriar;
+  final OnAtualizarCustom<T>? onAtualizar;
   final List<Widget> campos;
-
-  /// Texto exibido no botão de salvar. Padrão: 'Salvar'.
   final String? textoBotao;
-
-  /// Função que retorna os dados que serão usados para criar/atualizar o modelo.
-  final ConstruirDadosCallback construirDados;
-
-  /// Callback chamado ao concluir o processo de salvar.
+  final ConstruirDadosCallback? construirDados;
   final AoConcluirCallBack<T>? aoConcluir;
-
-  /// Callback que indica se é possível salvar ou não. Pode ser usado para validações extras.
   final OnPodeSalvar? onPodeSalvar;
-
-  /// Cor de fundo do botão salvar.
   final Color? backgroundColor;
-
-  /// Cor do texto do botão salvar.
   final Color? corTextoBotaoSalvar;
 
-  const FormularioGenerico({
+  /// Construtor privado: só usado pelas fábricas
+  const FormularioGenerico._({
     super.key,
     this.modelo,
     this.acaoEspecialCallBack,
     this.acaoServicoPersonalizada,
     this.buscaModelo,
-    required this.servico,
+    this.servico,
+    this.onCriar,
+    this.onAtualizar,
     required this.campos,
     this.textoBotao,
-    required this.construirDados,
+    this.construirDados,
     this.aoConcluir,
     this.onPodeSalvar,
     this.backgroundColor,
     this.corTextoBotaoSalvar,
   });
 
+  /// para serviços que estendem [SevicePadrao].
+  factory FormularioGenerico.comServicoPadrao({
+    Key? key,
+    T? modelo,
+    required S servico,
+    required List<Widget> campos,
+    ConstruirDadosCallback? construirDados,
+    AoConcluirCallBack<T>? aoConcluir,
+    AcaoEspecialCallBack? acaoEspecialCallBack,
+    AcaoServicoPersonalizada<T, S>? acaoServicoPersonalizada,
+    BuscarModeloCallBack<T>? buscaModelo,
+    String? textoBotao,
+    Color? backgroundColor,
+    Color? corTextoBotaoSalvar,
+  }) {
+    if (servico is! SevicePadrao) {
+      throw ArgumentError("O serviço precisa implementar SevicePadrao");
+    }
+    return FormularioGenerico._(
+      key: key,
+      modelo: modelo,
+      servico: servico,
+      campos: campos,
+      construirDados: construirDados,
+      aoConcluir: aoConcluir,
+      acaoEspecialCallBack: acaoEspecialCallBack,
+      acaoServicoPersonalizada: acaoServicoPersonalizada,
+      buscaModelo: buscaModelo,
+      textoBotao: textoBotao,
+      backgroundColor: backgroundColor,
+      corTextoBotaoSalvar: corTextoBotaoSalvar,
+    );
+  }
+
+  /// 🏭 Fábrica para cenários customizados (sem [SevicePadrao]).
+  factory FormularioGenerico.comServicoCustom({
+    Key? key,
+    T? modelo,
+    required List<Widget> campos,
+    required OnCriarCustom<T> onCriar,
+    required OnAtualizarCustom<T> onAtualizar,
+    ConstruirDadosCallback? construirDados,
+    AoConcluirCallBack<T>? aoConcluir,
+    BuscarModeloCallBack<T>? buscaModelo,
+    String? textoBotao,
+    Color? backgroundColor,
+    Color? corTextoBotaoSalvar,
+  }) {
+    return FormularioGenerico._(
+      key: key,
+      modelo: modelo,
+      campos: campos,
+      onCriar: onCriar,
+      onAtualizar: onAtualizar,
+      construirDados: construirDados,
+      aoConcluir: aoConcluir,
+      buscaModelo: buscaModelo,
+      textoBotao: textoBotao,
+      backgroundColor: backgroundColor,
+      corTextoBotaoSalvar: corTextoBotaoSalvar,
+    );
+  }
+
+  /// 🏭 Fábrica para modo somente visualização.
+  factory FormularioGenerico.visualizacao({
+    Key? key,
+    required List<Widget> campos,
+    AoConcluirCallBack<T>? aoConcluir,
+  }) {
+    return FormularioGenerico._(
+      key: key,
+      campos: campos,
+      aoConcluir: aoConcluir,
+      construirDados: null,
+      textoBotao: null, // sem botão
+    );
+  }
+
   @override
   State<FormularioGenerico<T, S>> createState() => _FormularioGenericoState<T, S>();
 }
 
-class _FormularioGenericoState<T extends Model, S extends SevicePadrao> extends State<FormularioGenerico<T, S>> {
+class _FormularioGenericoState<T extends Model, S> extends State<FormularioGenerico<T, S>> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   late final ScrollController _scrollController;
 
@@ -212,29 +352,50 @@ class _FormularioGenericoState<T extends Model, S extends SevicePadrao> extends 
 
                   final T? modelo = widget.modelo ?? widget.buscaModelo?.call();
                   final S? servico = widget.servico;
+                  final dados = widget.construirDados != null ? widget.construirDados!() : <String, dynamic>{};
 
                   try {
-                    if (servico != null) {
+                    T? resultado;
+
+                    if (servico is SevicePadrao) {
+                      // Caso seja um serviço padrão
                       if (widget.acaoServicoPersonalizada != null) {
                         await widget.acaoServicoPersonalizada!.call(servico, modelo);
                         return;
                       }
                       if (modelo == null) {
-                        final T novoModelo = await servico.criar(dados: widget.construirDados());
-                        _Mensagem.exibir<T>(context: context, modelo: novoModelo, tipo: 'criada');
-                        widget.aoConcluir?.call(novoModelo ?? modelo);
+                        resultado = await servico.criar(dados: dados);
+                        if (!context.mounted) return;
+                        _Mensagem.exibir<T>(context, modelo: resultado, tipo: 'criada');
                       } else {
-                        final Map<String, dynamic> dados = widget.construirDados();
-
-                        final T? modeloAtualizado = await servico.atualizar(
+                        resultado = await servico.atualizar(
                           modelo: modelo,
                           dados: dados.isEmpty ? modelo.toJson() : dados,
                         );
-
-                        _Mensagem.exibir<T>(context: context, modelo: modeloAtualizado ?? modelo, tipo: 'atualizada');
-                        widget.aoConcluir?.call(modeloAtualizado ?? modelo);
+                        if (!context.mounted) return;
+                        _Mensagem.exibir<T>(context, modelo: resultado ?? modelo, tipo: 'atualizada');
                       }
-                      return;
+                    } else {
+                      // Caso seja serviço customizado
+                      if (modelo == null) {
+                        if (widget.onCriar == null) {
+                          throw Exception("Você precisa fornecer 'onCriar' ao usar um serviço customizado");
+                        }
+                        resultado = await widget.onCriar!(dados);
+                        if (!context.mounted) return;
+                        _Mensagem.exibir<T>(context, modelo: resultado, tipo: 'criada');
+                      } else {
+                        if (widget.onAtualizar == null) {
+                          throw Exception("Você precisa fornecer 'onAtualizar' ao usar um serviço customizado");
+                        }
+                        resultado = await widget.onAtualizar!(modelo, dados);
+                        if (!context.mounted) return;
+                        _Mensagem.exibir<T>(context, modelo: resultado, tipo: 'atualizada');
+                      }
+                    }
+
+                    if (resultado != null) {
+                      widget.aoConcluir?.call(resultado);
                     }
                   } on HttpException catch (e) {
                     final MensagemErroRequest erro = MensagemErroRequest.fromJson(jsonDecode(e.message));
@@ -266,8 +427,8 @@ class _FormularioGenericoState<T extends Model, S extends SevicePadrao> extends 
 ///
 /// Exibe um [SnackBar] com mensagem apropriada com base no nome do modelo e tipo de ação.
 class _Mensagem {
-  static void exibir<T extends Model>({
-    required BuildContext context,
+  static void exibir<T extends Model>(
+    BuildContext context, {
     required T? modelo,
     Color cor = Colors.green,
     String? mensagem,
