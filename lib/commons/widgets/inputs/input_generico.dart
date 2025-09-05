@@ -1,6 +1,5 @@
 
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 /// InputGenerico
 ///
@@ -461,7 +460,7 @@ class _InputGenericoState extends State<InputGenerico> {
               lastDate: DateTime(2100),
             );
             if (picked != null) {
-              String formatted = DateFormat('dd/MM/yyyy').format(picked);
+              String formatted = '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
               widget.controlador?.text = formatted;
               widget.onChanged?.call(formatted);
             }
