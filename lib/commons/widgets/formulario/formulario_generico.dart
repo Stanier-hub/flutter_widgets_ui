@@ -61,6 +61,9 @@ typedef OnAtualizarCustom<T extends Model> = Future<T> Function(T modelo, Map<St
 /// - `onPodeSalvar`: Callback que retorna um booleano para permitir ou bloquear o salvamento (ex: validações adicionais).
 /// - `backgroundColor`: Cor de fundo do botão salvar.
 /// - `corTextoBotaoSalvar`: Cor do texto do botão salvar.
+/// - `exibirBotaoSalvar`: Indica se o botão salvar deve ser exibido.
+/// - `onSalvar`: Função chamada para executar a ação personalizada de salvar.
+/// - `onCancelar`: Callback para exibir e cancelar a operação.
 ///
 /// Exemplo com serviço padrão:
 /// ```dart
@@ -94,65 +97,6 @@ typedef OnAtualizarCustom<T extends Model> = Future<T> Function(T modelo, Map<St
 ///   aoConcluir: (usuario) => print("Usuário salvo: ${usuario?.toJson()}"),
 /// );
 /// ```
-
-/// Widget genérico para formulários que manipulem modelos [T] e usem serviços [S].
-///
-/// Este widget permite construir um formulário flexível e reutilizável que pode criar ou atualizar
-/// modelos que estendam [Model], usando:
-/// - Um serviço que implemente [SevicePadrao] (fluxo padrão com `criar` e `atualizar`);
-/// - Ou um serviço customizado, passando `onCriar` e `onAtualizar`.
-///
-/// O formulário exibe campos personalizados, botões e lida com validações e feedback visual.
-///
-/// Parâmetros:
-/// - `modelo`: Instância do modelo [T] que será editado. Se nulo, o formulário criará um novo modelo.
-/// - `acaoEspecialCallBack`: Callback que pode executar uma ação especial antes do salvamento. Retornar
-///    false cancela o salvamento.
-/// - `acaoServicoPersonalizada`: Callback opcional para executar uma ação personalizada usando o serviço e o modelo.
-/// - `buscaModelo`: Callback para retornar uma instância do modelo [T], caso `modelo` seja nulo.
-/// - `servico`: Serviço responsável por criar e atualizar o modelo. Pode ser padrão ou customizado.
-/// - `onCriar`: Função customizada para criação de modelo (usada se `servico` não for [SevicePadrao]).
-/// - `onAtualizar`: Função customizada para atualização de modelo (usada se `servico` não for [SevicePadrao]).
-/// - `campos`: Lista de widgets que compõem os campos do formulário.
-/// - `textoBotao`: Texto exibido no botão de salvar. Padrão é 'Salvar'.
-/// - `construirDados`: Função que retorna um mapa com os dados que serão usados para criar ou atualizar o modelo.
-/// - `aoConcluir`: Callback executado após o término do processo de salvar, independentemente do sucesso.
-/// - `onPodeSalvar`: Callback que retorna um booleano para permitir ou bloquear o salvamento (ex: validações adicionais).
-/// - `backgroundColor`: Cor de fundo do botão salvar.
-/// - `corTextoBotaoSalvar`: Cor do texto do botão salvar.
-///
-/// Exemplo com serviço padrão:
-/// ```dart
-/// FormularioGenerico<Cliente, ClienteService>(
-///   modelo: clienteExistente,
-///   servico: clienteService,
-///   campos: [
-///     TextFormField(...),
-///   ],
-///   construirDados: () => {
-///     'nome': nomeController.text,
-///   },
-///   aoConcluir: (modeloSalvo) {
-///     print("Cliente salvo: \\${modeloSalvo?.toJson()}");
-///   },
-/// );
-/// ```
-///
-/// Exemplo com serviço customizado:
-/// ```dart
-/// FormularioGenerico<Usuario, MeuServicoCustom>(
-///   servico: MeuServicoCustom(),
-///   onCriar: (dados) async => Usuario.fromJson(await api.post("/usuarios", body: dados)),
-///   onAtualizar: (usuario, dados) async => Usuario.fromJson(await api.put("/usuarios/\\${usuario.id}", body: dados)),
-///   campos: [
-///     TextFormField(...),
-///   ],
-///   construirDados: () => {
-///     "email": emailController.text,
-///   },
-///   aoConcluir: (usuario) => print("Usuário salvo: \\${usuario?.toJson()}"),
-/// );
-/// ```
 class FormularioGenerico<T extends Model, S> extends StatefulWidget {
   final T? modelo;
   final AcaoEspecialCallBack? acaoEspecialCallBack;
@@ -168,6 +112,9 @@ class FormularioGenerico<T extends Model, S> extends StatefulWidget {
   final OnPodeSalvar? onPodeSalvar;
   final Color? backgroundColor;
   final Color? corTextoBotaoSalvar;
+  final bool exibirBotaoSalvar;
+  final Function? onCancelar;
+  final Function? onSalvar;
 
   /// Construtor privado: só usado pelas fábricas
   const FormularioGenerico._({
@@ -186,6 +133,9 @@ class FormularioGenerico<T extends Model, S> extends StatefulWidget {
     this.onPodeSalvar,
     this.backgroundColor,
     this.corTextoBotaoSalvar,
+    this.exibirBotaoSalvar = true,
+    this.onCancelar,
+    this.onSalvar,
   });
 
   /// para serviços que estendem [SevicePadrao].
@@ -202,6 +152,9 @@ class FormularioGenerico<T extends Model, S> extends StatefulWidget {
     String? textoBotao,
     Color? backgroundColor,
     Color? corTextoBotaoSalvar,
+    bool exibirBotaoCancelar = false,
+    bool exibirBotaoSalvar = true,
+    Function? onCancelar,
   }) {
     if (servico is! SevicePadrao) {
       throw ArgumentError("O serviço precisa implementar SevicePadrao");
@@ -219,6 +172,8 @@ class FormularioGenerico<T extends Model, S> extends StatefulWidget {
       textoBotao: textoBotao,
       backgroundColor: backgroundColor,
       corTextoBotaoSalvar: corTextoBotaoSalvar,
+      exibirBotaoSalvar: exibirBotaoSalvar,
+      onCancelar: onCancelar,
     );
   }
 
@@ -235,6 +190,10 @@ class FormularioGenerico<T extends Model, S> extends StatefulWidget {
     String? textoBotao,
     Color? backgroundColor,
     Color? corTextoBotaoSalvar,
+    bool exibirBotaoCancelar = false,
+    bool exibirBotaoSalvar = true,
+    Function? onCancelar,
+    Function? onSalvar,
   }) {
     return FormularioGenerico._(
       key: key,
@@ -248,21 +207,21 @@ class FormularioGenerico<T extends Model, S> extends StatefulWidget {
       textoBotao: textoBotao,
       backgroundColor: backgroundColor,
       corTextoBotaoSalvar: corTextoBotaoSalvar,
+      exibirBotaoSalvar: exibirBotaoSalvar,
+      onCancelar: onCancelar,
+      onSalvar: onSalvar,
     );
   }
 
   /// 🏭 Fábrica para modo somente visualização.
-  factory FormularioGenerico.visualizacao({
-    Key? key,
-    required List<Widget> campos,
-    AoConcluirCallBack<T>? aoConcluir,
-  }) {
+  factory FormularioGenerico.visualizacao({Key? key, required List<Widget> campos}) {
     return FormularioGenerico._(
       key: key,
       campos: campos,
-      aoConcluir: aoConcluir,
+      aoConcluir: null,
       construirDados: null,
-      textoBotao: null, // sem botão
+      textoBotao: null,
+      exibirBotaoSalvar: false,
     );
   }
 
@@ -340,81 +299,95 @@ class _FormularioGenericoState<T extends Model, S> extends State<FormularioGener
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              ElevatedButton(
-                onPressed: () async {
-                  if (!_formKey.currentState!.validate()) {
-                    _scrollToPrimeiroErro();
-                    return; // Se o formulário não for válido, não prossegue.
-                  }
+              if (widget.exibirBotaoSalvar)
+                ElevatedButton(
+                  onPressed:
+                      widget.onSalvar != null
+                          ? widget.onSalvar?.call()
+                          : () async {
+                            if (!_formKey.currentState!.validate()) {
+                              _scrollToPrimeiroErro();
+                              return; // Se o formulário não for válido, não prossegue.
+                            }
 
-                  final bool podeContinuar = widget.acaoEspecialCallBack?.call() ?? true;
-                  if (!podeContinuar) return;
+                            final bool podeContinuar = widget.acaoEspecialCallBack?.call() ?? true;
+                            if (!podeContinuar) return;
 
-                  final T? modelo = widget.modelo ?? widget.buscaModelo?.call();
-                  final S? servico = widget.servico;
-                  final dados = widget.construirDados != null ? widget.construirDados!() : <String, dynamic>{};
+                            final T? modelo = widget.modelo ?? widget.buscaModelo?.call();
+                            final S? servico = widget.servico;
+                            final dados =
+                                widget.construirDados != null ? widget.construirDados!() : <String, dynamic>{};
 
-                  try {
-                    T? resultado;
+                            try {
+                              T? resultado;
 
-                    if (servico is SevicePadrao) {
-                      // Caso seja um serviço padrão
-                      if (widget.acaoServicoPersonalizada != null) {
-                        await widget.acaoServicoPersonalizada!.call(servico, modelo);
-                        return;
-                      }
-                      if (modelo == null) {
-                        resultado = await servico.criar(dados: dados);
-                        if (!context.mounted) return;
-                        _Mensagem.exibir<T>(context, modelo: resultado, tipo: 'criada');
-                      } else {
-                        resultado = await servico.atualizar(
-                          modelo: modelo,
-                          dados: dados.isEmpty ? modelo.toJson() : dados,
-                        );
-                        if (!context.mounted) return;
-                        _Mensagem.exibir<T>(context, modelo: resultado ?? modelo, tipo: 'atualizada');
-                      }
-                    } else {
-                      // Caso seja serviço customizado
-                      if (modelo == null) {
-                        if (widget.onCriar == null) {
-                          throw Exception("Você precisa fornecer 'onCriar' ao usar um serviço customizado");
-                        }
-                        resultado = await widget.onCriar!(dados);
-                        if (!context.mounted) return;
-                        _Mensagem.exibir<T>(context, modelo: resultado, tipo: 'criada');
-                      } else {
-                        if (widget.onAtualizar == null) {
-                          throw Exception("Você precisa fornecer 'onAtualizar' ao usar um serviço customizado");
-                        }
-                        resultado = await widget.onAtualizar!(modelo, dados);
-                        if (!context.mounted) return;
-                        _Mensagem.exibir<T>(context, modelo: resultado, tipo: 'atualizada');
-                      }
-                    }
+                              if (servico is SevicePadrao) {
+                                // Caso seja um serviço padrão
+                                if (widget.acaoServicoPersonalizada != null) {
+                                  await widget.acaoServicoPersonalizada!.call(servico, modelo);
+                                  return;
+                                }
+                                if (modelo == null) {
+                                  resultado = await servico.criar(dados: dados);
+                                  if (!context.mounted) return;
+                                  _Mensagem.exibir<T>(context, modelo: resultado, tipo: 'criada');
+                                } else {
+                                  resultado = await servico.atualizar(
+                                    modelo: modelo,
+                                    dados: dados.isEmpty ? modelo.toJson() : dados,
+                                  );
+                                  if (!context.mounted) return;
+                                  _Mensagem.exibir<T>(context, modelo: resultado ?? modelo, tipo: 'atualizada');
+                                }
+                              } else {
+                                // Caso seja serviço customizado
+                                if (modelo == null) {
+                                  if (widget.onCriar == null) {
+                                    throw Exception("Você precisa fornecer 'onCriar' ao usar um serviço customizado");
+                                  }
+                                  resultado = await widget.onCriar!(dados);
+                                  if (!context.mounted) return;
+                                  _Mensagem.exibir<T>(context, modelo: resultado, tipo: 'criada');
+                                } else {
+                                  if (widget.onAtualizar == null) {
+                                    throw Exception(
+                                      "Você precisa fornecer 'onAtualizar' ao usar um serviço customizado",
+                                    );
+                                  }
+                                  resultado = await widget.onAtualizar!(modelo, dados);
+                                  if (!context.mounted) return;
+                                  _Mensagem.exibir<T>(context, modelo: resultado, tipo: 'atualizada');
+                                }
+                              }
 
-                    if (resultado != null) {
-                      widget.aoConcluir?.call(resultado);
-                    }
-                  } on HttpException catch (e) {
-                    final MensagemErroRequest erro = MensagemErroRequest.fromJson(jsonDecode(e.message));
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(SnackBar(content: Text(erro.mensagem), backgroundColor: Colors.red));
-                  } catch (erro, stackTrace) {
-                    if (kDebugMode) {
-                      print('Erro genérico: "$erro".');
-                      print('Stack trace:\n$stackTrace');
-                    }
-                  }
-                },
-                style: ElevatedButton.styleFrom(backgroundColor: widget.backgroundColor ?? CoresPadraoUi.ascent),
-                child: Text(
-                  widget.textoBotao ?? 'Salvar',
-                  style: TextStyle(color: widget.corTextoBotaoSalvar ?? CoresPadraoUi.whiteSmoke),
+                              if (resultado != null) {
+                                widget.aoConcluir?.call(resultado);
+                              }
+                            } on HttpException catch (e) {
+                              final MensagemErroRequest erro = MensagemErroRequest.fromJson(jsonDecode(e.message));
+                              ScaffoldMessenger.of(
+                                context,
+                              ).showSnackBar(SnackBar(content: Text(erro.mensagem), backgroundColor: Colors.red));
+                            } catch (erro, stackTrace) {
+                              if (kDebugMode) {
+                                print('Erro genérico: "$erro".');
+                                print('Stack trace:\n$stackTrace');
+                              }
+                            }
+                          },
+                  style: ElevatedButton.styleFrom(backgroundColor: widget.backgroundColor ?? CoresPadraoUi.ascent),
+                  child: Text(
+                    widget.textoBotao ?? 'Salvar',
+                    style: TextStyle(color: widget.corTextoBotaoSalvar ?? CoresPadraoUi.whiteSmoke),
+                  ),
                 ),
-              ),
+              if (widget.onCancelar != null)
+                ElevatedButton(
+                  onPressed: () {
+                    widget.onCancelar?.call();
+                  },
+                  child: const Text("Cancelar"),
+                ),
             ],
           ),
         ],
