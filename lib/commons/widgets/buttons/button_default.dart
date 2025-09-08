@@ -10,6 +10,7 @@ class ButtonDefault extends StatelessWidget {
   final Color? textColor;
   final double? borderRadius;
   final double? tamanhoLentra;
+  final bool loading;
 
   const ButtonDefault({
     super.key,
@@ -21,6 +22,7 @@ class ButtonDefault extends StatelessWidget {
     this.textColor,
     this.borderRadius,
     this.tamanhoLentra,
+    this.loading = false,
   });
 
   @override
@@ -28,23 +30,30 @@ class ButtonDefault extends StatelessWidget {
     return ElevatedButton(
       style: ElevatedButton.styleFrom(
         backgroundColor: backgroundColor,
-        side: BorderSide(
-          color: borderColor ?? Colors.transparent,
-          width: borderWidth ?? 2.0,
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(borderRadius ?? 8.0),
-        ),
+        side: BorderSide(color: borderColor ?? Colors.transparent, width: borderWidth ?? 2.0),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(borderRadius ?? 8.0)),
       ),
-      onPressed: () {
-        funcaoBotao.call();
-      },
-      child: Text(
-        textoBotao,
-        style: TextStyle(
-            color: textColor ?? CoresPadraoUi.whiteSmoke,
-          fontSize: tamanhoLentra ?? 14.0,
-        ),
+      onPressed: loading ? null : () => funcaoBotao.call(),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (loading)
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(textColor ?? CoresPadraoUi.whiteSmoke),
+                ),
+              ),
+            ),
+          Text(
+            textoBotao,
+            style: TextStyle(color: textColor ?? CoresPadraoUi.whiteSmoke, fontSize: tamanhoLentra ?? 14.0),
+          ),
+        ],
       ),
     );
   }
